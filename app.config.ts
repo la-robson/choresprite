@@ -2,13 +2,13 @@ import type { ConfigContext, ExpoConfig } from '@expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Your App Name',
-  slug: 'your-app-slug',
+  name: 'ChoreSprite',
+  slug: 'choresprite',
   newArchEnabled: true,
   version: '1.0.0',
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
-  scheme: 'yourapp',
+  scheme: 'choresprite',
   runtimeVersion: {
     policy: 'appVersion',
   },
@@ -18,10 +18,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       ITSAppUsesNonExemptEncryption: false,
     },
     supportsTablet: true,
-    bundleIdentifier: 'com.yourcompany.yourapp',
+    bundleIdentifier: 'me.lauren.choresprite',
   },
   android: {
-    package: 'com.yourcompany.yourapp',
+    package: 'me.lauren.choresprite',
   },
   plugins: [
     'expo-router',
