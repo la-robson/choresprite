@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Sparkles, TrendingUp, AlertTriangle } from 'lucide-react-native';
@@ -6,37 +6,33 @@ import { useChoreStore, isOverdue, isDueToday } from '@/lib/store';
 import { Mascot } from '@/components/Mascot';
 import { ChoreCard } from '@/components/ChoreCard';
 import { PointsBadge } from '@/components/PointsBadge';
-import { AssignChoreSheet } from '@/components/AssignChoreSheet';
-import type { Chore } from '@/lib/store';
 
 export default function HomeScreen() {
   const {
     flatmates,
+    currentUserId,
     getActiveChores,
     getMascotMood,
     getCompletionRate,
     getLeaderboard,
     completeChore,
+    getCurrentUser,
   } = useChoreStore();
-
-  const [assignChore, setAssignChore] = useState<Chore | null>(null);
 
   const mood = getMascotMood();
   const completionRate = getCompletionRate();
   const leaderboard = getLeaderboard();
   const activeChores = getActiveChores();
+  const currentUser = getCurrentUser();
 
   const overdueChores = activeChores.filter((c) => isOverdue(c.nextDueDate));
   const dueTodayChores = activeChores.filter((c) => isDueToday(c.nextDueDate));
   const needsAttention = [...overdueChores, ...dueTodayChores];
 
-  const handleComplete = (chore: Chore) => {
-    if (chore.assignedTo) {
-      completeChore(chore.id, chore.assignedTo);
-    } else if (flatmates.length > 0) {
-      setAssignChore(chore);
-    } else {
-      completeChore(chore.id, '');
+  const handleComplete = (chore: { id: string }) => {
+    // Auto-assign to current logged-in user
+    if (currentUserId) {
+      completeChore(chore.id, currentUserId);
     }
   };
 
@@ -49,7 +45,7 @@ export default function HomeScreen() {
             <View>
               <Text className="text-2xl font-bold text-foreground">ChoreSprite</Text>
               <Text className="text-sm text-muted-foreground mt-0.5">
-                Keep your flat sparkling clean
+                {currentUser ? `Hey ${currentUser.name}!` : 'Keep your flat sparkling clean'}
               </Text>
             </View>
             {leaderboard.length > 0 && leaderboard[0].points > 0 && (
@@ -148,12 +144,6 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
-
-      <AssignChoreSheet
-        visible={!!assignChore}
-        chore={assignChore}
-        onClose={() => setAssignChore(null)}
-      />
     </SafeAreaView>
   );
 }

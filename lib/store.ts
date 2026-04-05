@@ -55,7 +55,7 @@ export interface ChoreCompletion {
 
 // ── Constants ──────────────────────────────────────────
 
-const FLATMATE_COLORS = [
+export const FLATMATE_COLORS = [
   '#A8D8B9', // pastel green
   '#F4B8C1', // pastel pink
   '#B8D4F4', // pastel blue
@@ -64,7 +64,7 @@ const FLATMATE_COLORS = [
   '#F4F0B8', // pastel yellow
 ];
 
-const AVATAR_EMOJIS = ['🐸', '🐰', '🐱', '🐶', '🦊', '🐼', '🐨', '🦉'];
+export const AVATAR_EMOJIS = ['🐸', '🐰', '🐱', '🐶', '🦊', '🐼', '🐨', '🦉', '🐧', '🐮', '🐷', '🐵', '🦄', '🐢', '🐙', '🦋'];
 
 export const CHORE_ICONS: Record<string, string> = {
   'Dishes': '🍽️',
@@ -174,9 +174,19 @@ interface ChoreStore {
   chores: Chore[];
   completions: ChoreCompletion[];
 
+  /** Currently logged-in flatmate id (null = not logged in) */
+  currentUserId: string | null;
+
+  // Auth actions
+  login: (flatmateId: string) => void;
+  logout: () => void;
+  getCurrentUser: () => Flatmate | null;
+
   // Flatmate actions
-  addFlatmate: (name: string) => void;
+  addFlatmate: (name: string) => string; // returns new flatmate id
   removeFlatmate: (id: string) => void;
+  updateFlatmateName: (id: string, name: string) => void;
+  updateFlatmateAvatar: (id: string, avatar: string) => void;
 
   // Chore actions
   addChore: (
@@ -209,11 +219,27 @@ export const useChoreStore = create<ChoreStore>()(
       flatmates: [],
       chores: [],
       completions: [],
+      currentUserId: null,
+
+      login: (flatmateId: string) => {
+        set({ currentUserId: flatmateId });
+      },
+
+      logout: () => {
+        set({ currentUserId: null });
+      },
+
+      getCurrentUser: () => {
+        const { flatmates, currentUserId } = get();
+        if (!currentUserId) return null;
+        return flatmates.find((f) => f.id === currentUserId) ?? null;
+      },
 
       addFlatmate: (name: string) => {
         const { flatmates } = get();
+        const id = generateId();
         const newFlatmate: Flatmate = {
-          id: generateId(),
+          id,
           name,
           avatar: getNextAvatar(flatmates),
           points: 0,
@@ -221,14 +247,35 @@ export const useChoreStore = create<ChoreStore>()(
           color: getNextColor(flatmates),
         };
         set({ flatmates: [...flatmates, newFlatmate] });
+        return id;
       },
 
       removeFlatmate: (id: string) => {
-        const { flatmates, chores } = get();
+        const { flatmates, chores, currentUserId } = get();
         set({
           flatmates: flatmates.filter((f) => f.id !== id),
           chores: chores.map((c) =>
             c.assignedTo === id ? { ...c, assignedTo: null } : c,
+          ),
+          // If the removed flatmate is the current user, log out
+          currentUserId: currentUserId === id ? null : currentUserId,
+        });
+      },
+
+      updateFlatmateName: (id: string, name: string) => {
+        const { flatmates } = get();
+        set({
+          flatmates: flatmates.map((f) =>
+            f.id === id ? { ...f, name } : f,
+          ),
+        });
+      },
+
+      updateFlatmateAvatar: (id: string, avatar: string) => {
+        const { flatmates } = get();
+        set({
+          flatmates: flatmates.map((f) =>
+            f.id === id ? { ...f, avatar } : f,
           ),
         });
       },

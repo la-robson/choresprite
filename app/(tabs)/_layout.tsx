@@ -1,7 +1,19 @@
-import { Home, ListChecks, Users } from 'lucide-react-native';
-import { Tabs } from 'expo-router';
+import { Home, ListChecks, Users, User } from 'lucide-react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { useEffect } from 'react';
+import { useChoreStore } from '@/lib/store';
 
 export default function TabLayout() {
+  const router = useRouter();
+  const currentUserId = useChoreStore((s) => s.currentUserId);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!currentUserId) {
+      router.replace('/login');
+    }
+  }, [currentUserId, router]);
+
   return (
     <Tabs
       screenOptions={{
@@ -37,6 +49,15 @@ export default function TabLayout() {
           title: 'Flatmates',
           tabBarIcon: ({ color, focused }) => (
             <Users color={focused ? 'hsl(152, 55%, 42%)' : color} size={22} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, focused }) => (
+            <User color={focused ? 'hsl(152, 55%, 42%)' : color} size={22} />
           ),
         }}
       />

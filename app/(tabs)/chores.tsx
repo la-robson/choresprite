@@ -3,16 +3,14 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Sparkles } from 'lucide-react-native';
 import { useChoreStore, isOverdue, isDueToday } from '@/lib/store';
+import type { Chore } from '@/lib/store';
 import { ChoreCard } from '@/components/ChoreCard';
 import { AddChoreSheet } from '@/components/AddChoreSheet';
-import { AssignChoreSheet } from '@/components/AssignChoreSheet';
-import type { Chore } from '@/lib/store';
 
 export default function ChoresScreen() {
-  const { flatmates, getActiveChores, getCompletedOneOffs, completeChore, removeChore } =
+  const { flatmates, currentUserId, getActiveChores, getCompletedOneOffs, completeChore, removeChore } =
     useChoreStore();
   const [showAddSheet, setShowAddSheet] = useState(false);
-  const [assignChore, setAssignChore] = useState<Chore | null>(null);
 
   const activeChores = getActiveChores();
   const completedOneOffs = getCompletedOneOffs();
@@ -25,13 +23,10 @@ export default function ChoresScreen() {
 
   const totalActive = activeChores.length;
 
-  const handleComplete = (chore: Chore) => {
-    if (chore.assignedTo) {
-      completeChore(chore.id, chore.assignedTo);
-    } else if (flatmates.length > 0) {
-      setAssignChore(chore);
-    } else {
-      completeChore(chore.id, '');
+  const handleComplete = (chore: { id: string }) => {
+    // Auto-assign to current logged-in user
+    if (currentUserId) {
+      completeChore(chore.id, currentUserId);
     }
   };
 
@@ -153,11 +148,6 @@ export default function ChoresScreen() {
       </ScrollView>
 
       <AddChoreSheet visible={showAddSheet} onClose={() => setShowAddSheet(false)} />
-      <AssignChoreSheet
-        visible={!!assignChore}
-        chore={assignChore}
-        onClose={() => setAssignChore(null)}
-      />
     </SafeAreaView>
   );
 }

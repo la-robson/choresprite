@@ -163,6 +163,10 @@ export default function RootLayout() {
               name="(tabs)"
               options={{ title: 'Habits', headerShown: false }}
             />
+            <Stack.Screen
+              name="login"
+              options={{ headerShown: false }}
+            />
           </Stack>
         </GestureHandlerRootView>
       </ThemeProvider>
