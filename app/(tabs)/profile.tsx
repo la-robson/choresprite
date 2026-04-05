@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LogOut, Pencil, Star, Flame, Check, X } from 'lucide-react-native';
+import { LogOut, Pencil, Star, Flame, Check, X, Hash, Copy } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { useChoreStore, AVATAR_EMOJIS } from '@/lib/store';
 
@@ -13,12 +14,14 @@ export default function ProfileScreen() {
     updateFlatmateAvatar,
     logout,
     completions,
+    flatCode,
   } = useChoreStore();
 
   const user = getCurrentUser();
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   if (!user) {
     return (
@@ -45,6 +48,14 @@ export default function ProfileScreen() {
   const handleSelectAvatar = (emoji: string) => {
     updateFlatmateAvatar(user.id, emoji);
     setShowAvatarPicker(false);
+  };
+
+  const handleCopyCode = async () => {
+    if (flatCode) {
+      await Clipboard.setStringAsync(flatCode);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    }
   };
 
   const handleLogout = () => {
@@ -150,6 +161,46 @@ export default function ProfileScreen() {
             <Text className="text-xs text-muted-foreground mt-0.5">Chores Completed</Text>
           </View>
         </View>
+
+        {/* Flat Join Code */}
+        {flatCode && (
+          <View className="px-5 mt-5">
+            <Text className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Flat Join Code
+            </Text>
+            <View className="bg-card border border-border rounded-2xl p-5">
+              <View className="flex-row items-center justify-center mb-3">
+                <View className="mr-2">
+                  <Hash size={20} color="hsl(152, 55%, 42%)" />
+                </View>
+                <Text
+                  className="text-3xl font-bold text-primary"
+                  style={{ letterSpacing: 6 }}
+                >
+                  {flatCode}
+                </Text>
+              </View>
+              <Text className="text-xs text-muted-foreground text-center mb-4">
+                Share this code with new flatmates so they can join your flat
+              </Text>
+              <Pressable
+                onPress={handleCopyCode}
+                className="flex-row items-center justify-center bg-primary/10 border border-primary/20 rounded-xl py-3 active:opacity-70"
+              >
+                <View className="mr-2">
+                  {codeCopied ? (
+                    <Check size={16} color="hsl(152, 55%, 42%)" />
+                  ) : (
+                    <Copy size={16} color="hsl(152, 55%, 42%)" />
+                  )}
+                </View>
+                <Text className="text-sm font-semibold text-primary">
+                  {codeCopied ? 'Copied!' : 'Copy Code'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         {/* Logout */}
         <View className="px-5 mt-8">

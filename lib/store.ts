@@ -25,8 +25,6 @@ export interface Flatmate {
   points: number;
   streak: number;
   color: string; // pastel color for identification
-  /** Hashed password (simple hash for local-only auth) */
-  passwordHash: string;
 }
 
 export interface Chore {
@@ -99,15 +97,14 @@ function getNextColor(flatmates: Flatmate[]): string {
   return FLATMATE_COLORS.find((c) => !used.has(c)) || FLATMATE_COLORS[0];
 }
 
-/** Simple hash for local-only password storage (not cryptographically secure, but fine for local AsyncStorage) */
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
+/** Generate a 6-character alphanumeric flat join code */
+function generateFlatCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars (0/O, 1/I)
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
   }
-  // Add salt-like prefix to make it slightly more opaque
-  return 'ph_' + Math.abs(hash).toString(36);
+  return code;
 }
 
 /** Calculate next due date from a base date + frequency in days */
@@ -190,15 +187,22 @@ interface ChoreStore {
   /** Currently logged-in flatmate id (null = not logged in) */
   currentUserId: string | null;
 
+  /** The flat's join code (null = no flat created yet) */
+  flatCode: string | null;
+
   // Auth actions
   login: (flatmateId: string) => void;
   logout: () => void;
   getCurrentUser: () => Flatmate | null;
-  /** Verify password for a flatmate. Returns true if correct. */
-  verifyPassword: (flatmateId: string, password: string) => boolean;
+  /** Create a new flat with a join code and first flatmate. Returns the flatmate id. */
+  createFlat: (name: string) => string;
+  /** Join an existing flat by code. Returns flatmate id or null if code is wrong. */
+  joinFlat: (code: string, name: string) => string | null;
+  /** Get the flat join code */
+  getFlatCode: () => string | null;
 
   // Flatmate actions
-  addFlatmate: (name: string, password: string) => string; // returns new flatmate id
+  addFlatmate: (name: string) => string; // returns new flatmate id
   removeFlatmate: (id: string) => void;
   updateFlatmateName: (id: string, name: string) => void;
   updateFlatmateAvatar: (id: string, avatar: string) => void;
@@ -235,6 +239,7 @@ export const useChoreStore = create<ChoreStore>()(
       chores: [],
       completions: [],
       currentUserId: null,
+      flatCode: null,
 
       login: (flatmateId: string) => {
         set({ currentUserId: flatmateId });
@@ -250,13 +255,51 @@ export const useChoreStore = create<ChoreStore>()(
         return flatmates.find((f) => f.id === currentUserId) ?? null;
       },
 
-      verifyPassword: (flatmateId: string, password: string) => {
-        const flatmate = get().flatmates.find((f) => f.id === flatmateId);
-        if (!flatmate) return false;
-        return flatmate.passwordHash === simpleHash(password);
+      createFlat: (name: string) => {
+        const code = generateFlatCode();
+        const id = generateId();
+        const newFlatmate: Flatmate = {
+          id,
+          name,
+          avatar: getNextAvatar([]),
+          points: 0,
+          streak: 0,
+          color: getNextColor([]),
+        };
+        set({
+          flatCode: code,
+          flatmates: [newFlatmate],
+          chores: [],
+          completions: [],
+          currentUserId: id,
+        });
+        return id;
       },
 
-      addFlatmate: (name: string, password: string) => {
+      joinFlat: (code: string, name: string) => {
+        const { flatCode, flatmates } = get();
+        if (!flatCode || code.toUpperCase() !== flatCode.toUpperCase()) return null;
+        const id = generateId();
+        const newFlatmate: Flatmate = {
+          id,
+          name,
+          avatar: getNextAvatar(flatmates),
+          points: 0,
+          streak: 0,
+          color: getNextColor(flatmates),
+        };
+        set({
+          flatmates: [...flatmates, newFlatmate],
+          currentUserId: id,
+        });
+        return id;
+      },
+
+      getFlatCode: () => {
+        return get().flatCode;
+      },
+
+      addFlatmate: (name: string) => {
         const { flatmates } = get();
         const id = generateId();
         const newFlatmate: Flatmate = {
@@ -266,7 +309,6 @@ export const useChoreStore = create<ChoreStore>()(
           points: 0,
           streak: 0,
           color: getNextColor(flatmates),
-          passwordHash: simpleHash(password),
         };
         set({ flatmates: [...flatmates, newFlatmate] });
         return id;
