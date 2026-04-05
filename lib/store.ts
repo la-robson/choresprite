@@ -43,7 +43,83 @@ export interface Chore {
   /** ISO date string for when this chore next needs doing */
   nextDueDate: string;
   createdAt: string;
+  /** Room this chore belongs to. null = apartment-level / general */
+  roomId: string | null;
 }
+
+// ── Room types ────────────────────────────────────────
+
+export type RoomType = 'bathroom' | 'bedroom' | 'kitchen' | 'living_room' | 'garden' | 'other';
+
+export interface Room {
+  id: string;
+  name: string;
+  type: RoomType;
+  icon: string; // emoji
+}
+
+export const ROOM_TYPE_META: Record<RoomType, { label: string; icon: string; defaultName: string }> = {
+  bathroom: { label: 'Bathroom', icon: '🚿', defaultName: 'Bathroom' },
+  bedroom: { label: 'Bedroom', icon: '🛏️', defaultName: 'Bedroom' },
+  kitchen: { label: 'Kitchen', icon: '🍳', defaultName: 'Kitchen' },
+  living_room: { label: 'Living Room', icon: '🛋️', defaultName: 'Living Room' },
+  garden: { label: 'Garden', icon: '🌿', defaultName: 'Garden' },
+  other: { label: 'Other', icon: '🏠', defaultName: 'Room' },
+};
+
+export interface SuggestedTask {
+  title: string;
+  icon: string;
+  frequencyDays: number;
+  frequencyLabel: string;
+  points: number;
+}
+
+export const ROOM_TASK_SUGGESTIONS: Record<RoomType, SuggestedTask[]> = {
+  bathroom: [
+    { title: 'Clean toilet', icon: '🚽', frequencyDays: 7, frequencyLabel: 'Weekly', points: 15 },
+    { title: 'Clean shower', icon: '🚿', frequencyDays: 7, frequencyLabel: 'Weekly', points: 15 },
+    { title: 'Clean bathroom floor', icon: '🧹', frequencyDays: 7, frequencyLabel: 'Weekly', points: 10 },
+    { title: 'Clean mirror', icon: '🪞', frequencyDays: 14, frequencyLabel: 'Every 2 Weeks', points: 5 },
+    { title: 'Replace towels', icon: '🧺', frequencyDays: 7, frequencyLabel: 'Weekly', points: 5 },
+    { title: 'Scrub tiles', icon: '🧽', frequencyDays: 30, frequencyLabel: 'Monthly', points: 20 },
+  ],
+  bedroom: [
+    { title: 'Change bed sheets', icon: '🛏️', frequencyDays: 7, frequencyLabel: 'Weekly', points: 10 },
+    { title: 'Vacuum bedroom', icon: '🧹', frequencyDays: 7, frequencyLabel: 'Weekly', points: 10 },
+    { title: 'Dust surfaces', icon: '✨', frequencyDays: 14, frequencyLabel: 'Every 2 Weeks', points: 10 },
+    { title: 'Tidy wardrobe', icon: '👕', frequencyDays: 30, frequencyLabel: 'Monthly', points: 15 },
+  ],
+  kitchen: [
+    { title: 'Clean surfaces', icon: '🧽', frequencyDays: 1, frequencyLabel: 'Daily', points: 5 },
+    { title: 'Do the dishes', icon: '🍽️', frequencyDays: 1, frequencyLabel: 'Daily', points: 5 },
+    { title: 'Take out bins', icon: '🗑️', frequencyDays: 2, frequencyLabel: 'Every 2 Days', points: 5 },
+    { title: 'Check fridge for expired food', icon: '🧊', frequencyDays: 7, frequencyLabel: 'Weekly', points: 10 },
+    { title: 'Clean oven', icon: '🔥', frequencyDays: 30, frequencyLabel: 'Monthly', points: 20 },
+    { title: 'Deep clean kitchen', icon: '🍳', frequencyDays: 30, frequencyLabel: 'Monthly', points: 25 },
+    { title: 'Clean microwave', icon: '📦', frequencyDays: 14, frequencyLabel: 'Every 2 Weeks', points: 10 },
+    { title: 'Mop kitchen floor', icon: '🧹', frequencyDays: 7, frequencyLabel: 'Weekly', points: 10 },
+  ],
+  living_room: [
+    { title: 'Vacuum living room', icon: '🧹', frequencyDays: 7, frequencyLabel: 'Weekly', points: 10 },
+    { title: 'Dust surfaces', icon: '✨', frequencyDays: 14, frequencyLabel: 'Every 2 Weeks', points: 10 },
+    { title: 'Clean floor', icon: '🧽', frequencyDays: 7, frequencyLabel: 'Weekly', points: 10 },
+    { title: 'Tidy cushions & throws', icon: '🛋️', frequencyDays: 3, frequencyLabel: 'Every 3 Days', points: 5 },
+    { title: 'Clean windows', icon: '🪟', frequencyDays: 30, frequencyLabel: 'Monthly', points: 15 },
+  ],
+  garden: [
+    { title: 'Water plants', icon: '🌱', frequencyDays: 2, frequencyLabel: 'Every 2 Days', points: 5 },
+    { title: 'Mow lawn', icon: '🌿', frequencyDays: 14, frequencyLabel: 'Every 2 Weeks', points: 20 },
+    { title: 'Weed garden', icon: '🌾', frequencyDays: 14, frequencyLabel: 'Every 2 Weeks', points: 15 },
+    { title: 'Sweep patio', icon: '🧹', frequencyDays: 7, frequencyLabel: 'Weekly', points: 10 },
+    { title: 'Trim hedges', icon: '✂️', frequencyDays: 30, frequencyLabel: 'Monthly', points: 20 },
+  ],
+  other: [
+    { title: 'Vacuum', icon: '🧹', frequencyDays: 7, frequencyLabel: 'Weekly', points: 10 },
+    { title: 'Dust surfaces', icon: '✨', frequencyDays: 14, frequencyLabel: 'Every 2 Weeks', points: 10 },
+    { title: 'Clean floor', icon: '🧽', frequencyDays: 7, frequencyLabel: 'Weekly', points: 10 },
+  ],
+};
 
 export interface ChoreCompletion {
   id: string;
@@ -183,6 +259,7 @@ interface ChoreStore {
   flatmates: Flatmate[];
   chores: Chore[];
   completions: ChoreCompletion[];
+  rooms: Room[];
 
   /** Currently logged-in flatmate id (null = not logged in) */
   currentUserId: string | null;
@@ -214,6 +291,12 @@ interface ChoreStore {
   updateFlatmateName: (id: string, name: string) => void;
   updateFlatmateAvatar: (id: string, avatar: string) => void;
 
+  // Room actions
+  addRoom: (name: string, type: RoomType) => string;
+  removeRoom: (id: string) => void;
+  /** Add suggested tasks for a room. Takes room id and array of selected task indices. */
+  addSuggestedTasks: (roomId: string, tasks: SuggestedTask[]) => void;
+
   // Chore actions
   addChore: (
     title: string,
@@ -222,6 +305,7 @@ interface ChoreStore {
     frequencyLabel: string,
     points: number,
     assignedTo: string | null,
+    roomId?: string | null,
   ) => void;
   removeChore: (id: string) => void;
   completeChore: (choreId: string, flatmateId: string) => void;
@@ -237,6 +321,10 @@ interface ChoreStore {
   getLeaderboard: () => Flatmate[];
   getMascotMood: () => 'happy' | 'excited' | 'neutral' | 'sad' | 'sleeping';
   getCompletionRate: () => number;
+  /** Get completion rate for a specific room's chores */
+  getRoomCompletionRate: (roomId: string) => number;
+  /** Get completion rate for chores with no room (general/apartment) */
+  getGeneralCompletionRate: () => number;
 }
 
 export const useChoreStore = create<ChoreStore>()(
@@ -245,6 +333,7 @@ export const useChoreStore = create<ChoreStore>()(
       flatmates: [],
       chores: [],
       completions: [],
+      rooms: [],
       currentUserId: null,
       flatCode: null,
       flatName: null,
@@ -368,7 +457,46 @@ export const useChoreStore = create<ChoreStore>()(
         });
       },
 
-      addChore: (title, choreType, frequencyDays, frequencyLabel, points, assignedTo) => {
+      // Room actions
+      addRoom: (name: string, type: RoomType) => {
+        const id = generateId();
+        const meta = ROOM_TYPE_META[type];
+        const newRoom: Room = { id, name: name || meta.defaultName, type, icon: meta.icon };
+        set({ rooms: [...get().rooms, newRoom] });
+        return id;
+      },
+
+      removeRoom: (id: string) => {
+        set({
+          rooms: get().rooms.filter((r) => r.id !== id),
+          // Clear roomId on chores that referenced this room
+          chores: get().chores.map((c) =>
+            c.roomId === id ? { ...c, roomId: null } : c,
+          ),
+        });
+      },
+
+      addSuggestedTasks: (roomId: string, tasks: SuggestedTask[]) => {
+        const now = new Date().toISOString();
+        const newChores: Chore[] = tasks.map((t) => ({
+          id: generateId(),
+          title: t.title,
+          icon: t.icon,
+          choreType: 'recurring' as ChoreType,
+          frequencyDays: t.frequencyDays,
+          frequencyLabel: t.frequencyLabel,
+          points: t.points,
+          assignedTo: null,
+          completed: false,
+          lastCompletedAt: null,
+          nextDueDate: startOfToday(),
+          createdAt: now,
+          roomId,
+        }));
+        set({ chores: [...get().chores, ...newChores] });
+      },
+
+      addChore: (title, choreType, frequencyDays, frequencyLabel, points, assignedTo, roomId) => {
         const icon = CHORE_ICONS[title] || '✅';
         const now = new Date().toISOString();
         // For new chores, they're due immediately (today)
@@ -385,6 +513,7 @@ export const useChoreStore = create<ChoreStore>()(
           lastCompletedAt: null,
           nextDueDate: startOfToday(),
           createdAt: now,
+          roomId: roomId ?? null,
         };
         set({ chores: [...get().chores, newChore] });
       },
@@ -512,6 +641,20 @@ export const useChoreStore = create<ChoreStore>()(
         const chores = get().getActiveChores();
         if (chores.length === 0) return 100;
 
+        const notOverdue = chores.filter((c) => !isOverdue(c.nextDueDate)).length;
+        return Math.round((notOverdue / chores.length) * 100);
+      },
+
+      getRoomCompletionRate: (roomId: string) => {
+        const chores = get().getActiveChores().filter((c) => c.roomId === roomId);
+        if (chores.length === 0) return 100;
+        const notOverdue = chores.filter((c) => !isOverdue(c.nextDueDate)).length;
+        return Math.round((notOverdue / chores.length) * 100);
+      },
+
+      getGeneralCompletionRate: () => {
+        const chores = get().getActiveChores().filter((c) => !c.roomId);
+        if (chores.length === 0) return 100;
         const notOverdue = chores.filter((c) => !isOverdue(c.nextDueDate)).length;
         return Math.round((notOverdue / chores.length) * 100);
       },

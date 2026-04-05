@@ -1,17 +1,18 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Check, Trash2, AlertTriangle, Clock, Repeat, CircleDot } from 'lucide-react-native';
-import type { Chore, Flatmate } from '@/lib/store';
+import type { Chore, Flatmate, Room } from '@/lib/store';
 import { isOverdue, isDueToday, formatDueDate } from '@/lib/store';
 
 interface ChoreCardProps {
   chore: Chore;
   flatmate?: Flatmate | null;
+  room?: Room | null;
   onComplete?: () => void;
   onDelete?: () => void;
 }
 
-export function ChoreCard({ chore, flatmate, onComplete, onDelete }: ChoreCardProps) {
+export function ChoreCard({ chore, flatmate, room, onComplete, onDelete }: ChoreCardProps) {
   const overdue = !chore.completed && isOverdue(chore.nextDueDate);
   const dueToday = !chore.completed && isDueToday(chore.nextDueDate);
   const completedOneOff = chore.choreType === 'oneOff' && chore.completed;
@@ -105,6 +106,14 @@ export function ChoreCard({ chore, flatmate, onComplete, onDelete }: ChoreCardPr
                 <Text style={{ fontSize: 8 }}>{flatmate.avatar}</Text>
               </View>
               <Text className="text-xs text-muted-foreground">{flatmate.name}</Text>
+            </View>
+          )}
+
+          {/* Room badge */}
+          {room && (
+            <View className="flex-row items-center bg-primary/10 rounded-full px-2 py-0.5">
+              <Text style={{ fontSize: 10 }} className="mr-0.5">{room.icon}</Text>
+              <Text className="text-xs text-primary font-medium">{room.name}</Text>
             </View>
           )}
         </View>

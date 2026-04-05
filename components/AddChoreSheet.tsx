@@ -21,7 +21,7 @@ interface AddChoreSheetProps {
 const POINT_OPTIONS = [5, 10, 15, 20, 25];
 
 export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
-  const { flatmates, addChore } = useChoreStore();
+  const { flatmates, rooms, addChore } = useChoreStore();
   const [title, setTitle] = useState('');
   const [customTitle, setCustomTitle] = useState('');
   const [choreType, setChoreType] = useState<ChoreType>('recurring');
@@ -30,6 +30,7 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
   const [useCustomDays, setUseCustomDays] = useState(false);
   const [points, setPoints] = useState(10);
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
 
   const choreNames = Object.keys(CHORE_ICONS);
 
@@ -51,7 +52,7 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
       }
     }
 
-    addChore(finalTitle.trim(), choreType, frequencyDays, frequencyLabel, points, assignedTo);
+    addChore(finalTitle.trim(), choreType, frequencyDays, frequencyLabel, points, assignedTo, selectedRoomId);
     resetForm();
     onClose();
   };
@@ -65,6 +66,7 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
     setUseCustomDays(false);
     setPoints(10);
     setAssignedTo(null);
+    setSelectedRoomId(null);
   };
 
   const handleClose = () => {
@@ -293,6 +295,57 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
                   </Pressable>
                 ))}
               </View>
+
+              {/* Room selector */}
+              {rooms.length > 0 && (
+                <>
+                  <Text className="text-sm font-medium text-muted-foreground mb-2">Room</Text>
+                  <View className="flex-row flex-wrap mb-4" style={{ gap: 8 }}>
+                    <Pressable
+                      onPress={() => setSelectedRoomId(null)}
+                      className={`rounded-xl px-3 py-2 border ${
+                        selectedRoomId === null
+                          ? 'bg-primary/15 border-primary'
+                          : 'bg-card border-border'
+                      }`}
+                    >
+                      <Text
+                        className={`text-sm ${
+                          selectedRoomId === null
+                            ? 'text-primary font-semibold'
+                            : 'text-foreground'
+                        }`}
+                      >
+                        🏠 General
+                      </Text>
+                    </Pressable>
+                    {rooms.map((room) => (
+                      <Pressable
+                        key={room.id}
+                        onPress={() => setSelectedRoomId(room.id)}
+                        className={`flex-row items-center rounded-xl px-3 py-2 border ${
+                          selectedRoomId === room.id
+                            ? 'bg-primary/15 border-primary'
+                            : 'bg-card border-border'
+                        }`}
+                      >
+                        <Text style={{ fontSize: 14 }} className="mr-1">
+                          {room.icon}
+                        </Text>
+                        <Text
+                          className={`text-sm ${
+                            selectedRoomId === room.id
+                              ? 'text-primary font-semibold'
+                              : 'text-foreground'
+                          }`}
+                        >
+                          {room.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              )}
 
               {/* Assign to */}
               {flatmates.length > 0 && (

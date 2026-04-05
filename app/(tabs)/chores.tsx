@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, Sparkles, Users, User } from 'lucide-react-native';
+import { Plus, Sparkles, Users, User, Home } from 'lucide-react-native';
 import { useChoreStore, isOverdue, isDueToday } from '@/lib/store';
 import type { Chore } from '@/lib/store';
 import { ChoreCard } from '@/components/ChoreCard';
 import { AddChoreSheet } from '@/components/AddChoreSheet';
+import { RoomSetupSheet } from '@/components/RoomSetupSheet';
 
 export default function ChoresScreen() {
-  const { flatmates, currentUserId, getActiveChores, getCompletedOneOffs, completeChore, removeChore } =
+  const { flatmates, rooms, currentUserId, getActiveChores, getCompletedOneOffs, completeChore, removeChore } =
     useChoreStore();
   const [showAddSheet, setShowAddSheet] = useState(false);
+  const [showRoomSetup, setShowRoomSetup] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
   const allActiveChores = getActiveChores();
@@ -39,14 +41,21 @@ export default function ChoresScreen() {
     }
   };
 
+  const getRoomForChore = (chore: Chore) => {
+    if (!chore.roomId) return null;
+    return rooms.find((r) => r.id === chore.roomId) ?? null;
+  };
+
   const renderChoreList = (chores: Chore[]) =>
     chores.map((chore) => {
       const flatmate = flatmates.find((f) => f.id === chore.assignedTo);
+      const room = getRoomForChore(chore);
       return (
         <ChoreCard
           key={chore.id}
           chore={chore}
           flatmate={flatmate}
+          room={room}
           onComplete={() => handleComplete(chore)}
           onDelete={() => removeChore(chore.id)}
         />
@@ -68,15 +77,28 @@ export default function ChoresScreen() {
             )}
           </Text>
         </View>
-        <Pressable
-          onPress={() => setShowAddSheet(true)}
-          className="flex-row items-center bg-primary rounded-xl px-4 py-2.5"
-        >
-          <View className="mr-1.5">
-            <Plus size={18} color="white" />
-          </View>
-          <Text className="text-primary-foreground font-semibold text-sm">Add</Text>
-        </Pressable>
+        <View className="flex-row items-center" style={{ gap: 8 }}>
+          {rooms.length === 0 && (
+            <Pressable
+              onPress={() => setShowRoomSetup(true)}
+              className="flex-row items-center bg-card border border-border rounded-xl px-3 py-2.5"
+            >
+              <View className="mr-1.5">
+                <Home size={16} color="hsl(152, 55%, 42%)" />
+              </View>
+              <Text className="text-primary font-semibold text-sm">Rooms</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={() => setShowAddSheet(true)}
+            className="flex-row items-center bg-primary rounded-xl px-4 py-2.5"
+          >
+            <View className="mr-1.5">
+              <Plus size={18} color="white" />
+            </View>
+            <Text className="text-primary-foreground font-semibold text-sm">Add</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Filter toggle */}
@@ -137,15 +159,28 @@ export default function ChoresScreen() {
                   ? 'Add your first chore to start tracking cleaning responsibilities with your flatmates'
                   : 'Switch to "All Chores" to see everything, or add a new chore'}
               </Text>
-              <Pressable
-                onPress={() => setShowAddSheet(true)}
-                className="flex-row items-center bg-primary rounded-xl px-5 py-3"
-              >
-                <View className="mr-1.5">
-                  <Sparkles size={16} color="white" />
-                </View>
-                <Text className="text-primary-foreground font-semibold">Add Chore</Text>
-              </Pressable>
+              <View className="flex-row" style={{ gap: 8 }}>
+                {rooms.length === 0 && (
+                  <Pressable
+                    onPress={() => setShowRoomSetup(true)}
+                    className="flex-row items-center bg-card border border-primary rounded-xl px-4 py-3"
+                  >
+                    <View className="mr-1.5">
+                      <Home size={16} color="hsl(152, 55%, 42%)" />
+                    </View>
+                    <Text className="text-primary font-semibold">Set Up Rooms</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={() => setShowAddSheet(true)}
+                  className="flex-row items-center bg-primary rounded-xl px-5 py-3"
+                >
+                  <View className="mr-1.5">
+                    <Sparkles size={16} color="white" />
+                  </View>
+                  <Text className="text-primary-foreground font-semibold">Add Chore</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         )}
@@ -188,11 +223,13 @@ export default function ChoresScreen() {
             </Text>
             {completedOneOffs.map((chore) => {
               const flatmate = flatmates.find((f) => f.id === chore.assignedTo);
+              const room = getRoomForChore(chore);
               return (
                 <ChoreCard
                   key={chore.id}
                   chore={chore}
                   flatmate={flatmate}
+                  room={room}
                   onDelete={() => removeChore(chore.id)}
                 />
               );
@@ -202,6 +239,7 @@ export default function ChoresScreen() {
       </ScrollView>
 
       <AddChoreSheet visible={showAddSheet} onClose={() => setShowAddSheet(false)} />
+      <RoomSetupSheet visible={showRoomSetup} onClose={() => setShowRoomSetup(false)} />
     </SafeAreaView>
   );
 }
