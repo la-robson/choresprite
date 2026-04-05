@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Modal, KeyboardAvoidingView, Platform } from 'react-native';
-import { X } from 'lucide-react-native';
-import { useChoreStore, CHORE_ICONS, FREQUENCY_LABELS } from '@/lib/store';
-import type { ChoreFrequency } from '@/lib/store';
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ScrollView,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { X, Repeat, CircleDot } from 'lucide-react-native';
+import { useChoreStore, CHORE_ICONS, FREQUENCY_PRESETS } from '@/lib/store';
+import type { ChoreType, FrequencyPreset } from '@/lib/store';
 
 interface AddChoreSheetProps {
   visible: boolean;
@@ -15,7 +24,10 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
   const { flatmates, addChore } = useChoreStore();
   const [title, setTitle] = useState('');
   const [customTitle, setCustomTitle] = useState('');
-  const [frequency, setFrequency] = useState<ChoreFrequency>('weekly');
+  const [choreType, setChoreType] = useState<ChoreType>('recurring');
+  const [frequencyPreset, setFrequencyPreset] = useState<FrequencyPreset>('weekly');
+  const [customDays, setCustomDays] = useState('');
+  const [useCustomDays, setUseCustomDays] = useState(false);
   const [points, setPoints] = useState(10);
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
 
@@ -24,21 +36,39 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
   const handleAdd = () => {
     const finalTitle = title || customTitle;
     if (!finalTitle.trim()) return;
-    addChore(finalTitle.trim(), frequency, points, assignedTo);
-    setTitle('');
-    setCustomTitle('');
-    setFrequency('weekly');
-    setPoints(10);
-    setAssignedTo(null);
+
+    let frequencyDays: number | null = null;
+    let frequencyLabel = 'One-off';
+
+    if (choreType === 'recurring') {
+      if (useCustomDays && customDays) {
+        frequencyDays = parseInt(customDays, 10);
+        frequencyLabel = frequencyDays === 1 ? 'Daily' : `Every ${frequencyDays} days`;
+      } else {
+        const preset = FREQUENCY_PRESETS[frequencyPreset];
+        frequencyDays = preset.days;
+        frequencyLabel = preset.label;
+      }
+    }
+
+    addChore(finalTitle.trim(), choreType, frequencyDays, frequencyLabel, points, assignedTo);
+    resetForm();
     onClose();
   };
 
-  const handleClose = () => {
+  const resetForm = () => {
     setTitle('');
     setCustomTitle('');
-    setFrequency('weekly');
+    setChoreType('recurring');
+    setFrequencyPreset('weekly');
+    setCustomDays('');
+    setUseCustomDays(false);
     setPoints(10);
     setAssignedTo(null);
+  };
+
+  const handleClose = () => {
+    resetForm();
     onClose();
   };
 
@@ -59,7 +89,10 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
             {/* Header */}
             <View className="flex-row items-center justify-between mb-5">
               <Text className="text-xl font-bold text-foreground">Add Chore</Text>
-              <Pressable onPress={handleClose} className="w-8 h-8 rounded-full bg-muted items-center justify-center">
+              <Pressable
+                onPress={handleClose}
+                className="w-8 h-8 rounded-full bg-muted items-center justify-center"
+              >
                 <View>
                   <X size={16} color="hsl(150, 10%, 45%)" />
                 </View>
@@ -73,7 +106,10 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
                 {choreNames.map((name) => (
                   <Pressable
                     key={name}
-                    onPress={() => { setTitle(name); setCustomTitle(''); }}
+                    onPress={() => {
+                      setTitle(name);
+                      setCustomTitle('');
+                    }}
                     className={`flex-row items-center rounded-xl px-3 py-2 border ${
                       title === name
                         ? 'bg-primary/15 border-primary'
@@ -95,38 +131,144 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
               </View>
 
               {/* Custom name */}
-              <Text className="text-sm font-medium text-muted-foreground mb-2">Or Custom Name</Text>
+              <Text className="text-sm font-medium text-muted-foreground mb-2">
+                Or Custom Name
+              </Text>
               <TextInput
                 value={customTitle}
-                onChangeText={(t) => { setCustomTitle(t); setTitle(''); }}
+                onChangeText={(t) => {
+                  setCustomTitle(t);
+                  setTitle('');
+                }}
                 placeholder="e.g. Feed the cat"
                 placeholderTextColor="hsl(150, 10%, 55%)"
                 className="bg-input border border-border rounded-xl px-4 py-3 text-foreground text-base mb-4"
               />
 
-              {/* Frequency */}
-              <Text className="text-sm font-medium text-muted-foreground mb-2">Frequency</Text>
-              <View className="flex-row flex-wrap mb-4" style={{ gap: 8 }}>
-                {(Object.keys(FREQUENCY_LABELS) as ChoreFrequency[]).map((freq) => (
-                  <Pressable
-                    key={freq}
-                    onPress={() => setFrequency(freq)}
-                    className={`rounded-xl px-3 py-2 border ${
-                      frequency === freq
-                        ? 'bg-primary/15 border-primary'
-                        : 'bg-card border-border'
+              {/* Task type */}
+              <Text className="text-sm font-medium text-muted-foreground mb-2">Task Type</Text>
+              <View className="flex-row mb-4" style={{ gap: 8 }}>
+                <Pressable
+                  onPress={() => setChoreType('recurring')}
+                  className={`flex-1 flex-row items-center justify-center rounded-xl py-3 border ${
+                    choreType === 'recurring'
+                      ? 'bg-primary/15 border-primary'
+                      : 'bg-card border-border'
+                  }`}
+                >
+                  <View className="mr-1.5">
+                    <Repeat
+                      size={16}
+                      color={
+                        choreType === 'recurring'
+                          ? 'hsl(152, 55%, 42%)'
+                          : 'hsl(150, 10%, 45%)'
+                      }
+                    />
+                  </View>
+                  <Text
+                    className={`text-sm font-medium ${
+                      choreType === 'recurring' ? 'text-primary' : 'text-foreground'
                     }`}
                   >
-                    <Text
-                      className={`text-sm ${
-                        frequency === freq ? 'text-primary font-semibold' : 'text-foreground'
+                    Recurring
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setChoreType('oneOff')}
+                  className={`flex-1 flex-row items-center justify-center rounded-xl py-3 border ${
+                    choreType === 'oneOff'
+                      ? 'bg-primary/15 border-primary'
+                      : 'bg-card border-border'
+                  }`}
+                >
+                  <View className="mr-1.5">
+                    <CircleDot
+                      size={16}
+                      color={
+                        choreType === 'oneOff'
+                          ? 'hsl(152, 55%, 42%)'
+                          : 'hsl(150, 10%, 45%)'
+                      }
+                    />
+                  </View>
+                  <Text
+                    className={`text-sm font-medium ${
+                      choreType === 'oneOff' ? 'text-primary' : 'text-foreground'
+                    }`}
+                  >
+                    One-off
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Frequency (only for recurring) */}
+              {choreType === 'recurring' && (
+                <>
+                  <Text className="text-sm font-medium text-muted-foreground mb-2">
+                    Frequency
+                  </Text>
+                  <View className="flex-row flex-wrap mb-2" style={{ gap: 8 }}>
+                    {(Object.keys(FREQUENCY_PRESETS) as FrequencyPreset[]).map((preset) => (
+                      <Pressable
+                        key={preset}
+                        onPress={() => {
+                          setFrequencyPreset(preset);
+                          setUseCustomDays(false);
+                        }}
+                        className={`rounded-xl px-3 py-2 border ${
+                          !useCustomDays && frequencyPreset === preset
+                            ? 'bg-primary/15 border-primary'
+                            : 'bg-card border-border'
+                        }`}
+                      >
+                        <Text
+                          className={`text-sm ${
+                            !useCustomDays && frequencyPreset === preset
+                              ? 'text-primary font-semibold'
+                              : 'text-foreground'
+                          }`}
+                        >
+                          {FREQUENCY_PRESETS[preset].label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    <Pressable
+                      onPress={() => setUseCustomDays(true)}
+                      className={`rounded-xl px-3 py-2 border ${
+                        useCustomDays
+                          ? 'bg-primary/15 border-primary'
+                          : 'bg-card border-border'
                       }`}
                     >
-                      {FREQUENCY_LABELS[freq]}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+                      <Text
+                        className={`text-sm ${
+                          useCustomDays ? 'text-primary font-semibold' : 'text-foreground'
+                        }`}
+                      >
+                        Custom
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {useCustomDays && (
+                    <View className="flex-row items-center mb-4" style={{ gap: 8 }}>
+                      <Text className="text-sm text-muted-foreground">Every</Text>
+                      <TextInput
+                        value={customDays}
+                        onChangeText={(t) => setCustomDays(t.replace(/[^0-9]/g, ''))}
+                        placeholder="5"
+                        placeholderTextColor="hsl(150, 10%, 55%)"
+                        keyboardType="number-pad"
+                        className="bg-input border border-border rounded-xl px-3 py-2 text-foreground text-base w-16 text-center"
+                      />
+                      <Text className="text-sm text-muted-foreground">days</Text>
+                    </View>
+                  )}
+
+                  {!useCustomDays && <View className="mb-2" />}
+                </>
+              )}
 
               {/* Points */}
               <Text className="text-sm font-medium text-muted-foreground mb-2">Points</Text>
@@ -155,7 +297,9 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
               {/* Assign to */}
               {flatmates.length > 0 && (
                 <>
-                  <Text className="text-sm font-medium text-muted-foreground mb-2">Assign To</Text>
+                  <Text className="text-sm font-medium text-muted-foreground mb-2">
+                    Assign To
+                  </Text>
                   <View className="flex-row flex-wrap mb-4" style={{ gap: 8 }}>
                     <Pressable
                       onPress={() => setAssignedTo(null)}
@@ -167,7 +311,9 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
                     >
                       <Text
                         className={`text-sm ${
-                          assignedTo === null ? 'text-primary font-semibold' : 'text-foreground'
+                          assignedTo === null
+                            ? 'text-primary font-semibold'
+                            : 'text-foreground'
                         }`}
                       >
                         Unassigned
@@ -188,7 +334,9 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
                         </Text>
                         <Text
                           className={`text-sm ${
-                            assignedTo === f.id ? 'text-primary font-semibold' : 'text-foreground'
+                            assignedTo === f.id
+                              ? 'text-primary font-semibold'
+                              : 'text-foreground'
                           }`}
                         >
                           {f.name}
@@ -204,9 +352,7 @@ export function AddChoreSheet({ visible, onClose }: AddChoreSheetProps) {
                 onPress={handleAdd}
                 disabled={!title && !customTitle.trim()}
                 className={`rounded-2xl py-4 items-center mt-2 ${
-                  title || customTitle.trim()
-                    ? 'bg-primary'
-                    : 'bg-muted'
+                  title || customTitle.trim() ? 'bg-primary' : 'bg-muted'
                 }`}
               >
                 <Text

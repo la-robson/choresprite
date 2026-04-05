@@ -2,19 +2,28 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Sparkles } from 'lucide-react-native';
-import { useChoreStore } from '@/lib/store';
+import { useChoreStore, isOverdue, isDueToday } from '@/lib/store';
 import { ChoreCard } from '@/components/ChoreCard';
 import { AddChoreSheet } from '@/components/AddChoreSheet';
 import { AssignChoreSheet } from '@/components/AssignChoreSheet';
 import type { Chore } from '@/lib/store';
 
 export default function ChoresScreen() {
-  const { chores, flatmates, completeChore, uncompleteChore, removeChore } = useChoreStore();
+  const { flatmates, getActiveChores, getCompletedOneOffs, completeChore, removeChore } =
+    useChoreStore();
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [assignChore, setAssignChore] = useState<Chore | null>(null);
 
-  const pendingChores = chores.filter((c) => !c.completed);
-  const completedChores = chores.filter((c) => c.completed);
+  const activeChores = getActiveChores();
+  const completedOneOffs = getCompletedOneOffs();
+
+  const overdueChores = activeChores.filter((c) => isOverdue(c.nextDueDate));
+  const dueTodayChores = activeChores.filter((c) => isDueToday(c.nextDueDate));
+  const upcomingChores = activeChores.filter(
+    (c) => !isOverdue(c.nextDueDate) && !isDueToday(c.nextDueDate),
+  );
+
+  const totalActive = activeChores.length;
 
   const handleComplete = (chore: Chore) => {
     if (chore.assignedTo) {
@@ -26,6 +35,20 @@ export default function ChoresScreen() {
     }
   };
 
+  const renderChoreList = (chores: Chore[]) =>
+    chores.map((chore) => {
+      const flatmate = flatmates.find((f) => f.id === chore.assignedTo);
+      return (
+        <ChoreCard
+          key={chore.id}
+          chore={chore}
+          flatmate={flatmate}
+          onComplete={() => handleComplete(chore)}
+          onDelete={() => removeChore(chore.id)}
+        />
+      );
+    });
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
@@ -33,7 +56,12 @@ export default function ChoresScreen() {
         <View>
           <Text className="text-2xl font-bold text-foreground">Chores</Text>
           <Text className="text-sm text-muted-foreground mt-0.5">
-            {chores.length} task{chores.length !== 1 ? 's' : ''} total
+            {totalActive} active task{totalActive !== 1 ? 's' : ''}
+            {overdueChores.length > 0 && (
+              <Text className="text-destructive">
+                {' '}· {overdueChores.length} overdue
+              </Text>
+            )}
           </Text>
         </View>
         <Pressable
@@ -49,15 +77,16 @@ export default function ChoresScreen() {
 
       <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 32 }}>
         {/* Empty state */}
-        {chores.length === 0 && (
+        {totalActive === 0 && completedOneOffs.length === 0 && (
           <View className="items-center py-12">
             <View className="bg-card rounded-2xl border border-border p-8 items-center w-full">
-              <Text style={{ fontSize: 48 }} className="mb-4">✨</Text>
-              <Text className="text-lg font-semibold text-foreground mb-2">
-                No chores yet
+              <Text style={{ fontSize: 48 }} className="mb-4">
+                ✨
               </Text>
+              <Text className="text-lg font-semibold text-foreground mb-2">No chores yet</Text>
               <Text className="text-sm text-muted-foreground text-center mb-5">
-                Add your first chore to start tracking cleaning responsibilities with your flatmates
+                Add your first chore to start tracking cleaning responsibilities with your
+                flatmates
               </Text>
               <Pressable
                 onPress={() => setShowAddSheet(true)}
@@ -72,41 +101,49 @@ export default function ChoresScreen() {
           </View>
         )}
 
-        {/* Pending */}
-        {pendingChores.length > 0 && (
+        {/* Overdue */}
+        {overdueChores.length > 0 && (
           <View className="mb-4">
-            <Text className="text-base font-semibold text-foreground mb-3">
-              To Do ({pendingChores.length})
+            <Text className="text-base font-semibold text-destructive mb-3">
+              Overdue ({overdueChores.length})
             </Text>
-            {pendingChores.map((chore) => {
-              const flatmate = flatmates.find((f) => f.id === chore.assignedTo);
-              return (
-                <ChoreCard
-                  key={chore.id}
-                  chore={chore}
-                  flatmate={flatmate}
-                  onComplete={() => handleComplete(chore)}
-                  onDelete={() => removeChore(chore.id)}
-                />
-              );
-            })}
+            {renderChoreList(overdueChores)}
           </View>
         )}
 
-        {/* Completed */}
-        {completedChores.length > 0 && (
+        {/* Due Today */}
+        {dueTodayChores.length > 0 && (
+          <View className="mb-4">
+            <Text className="text-base font-semibold text-primary mb-3">
+              Due Today ({dueTodayChores.length})
+            </Text>
+            {renderChoreList(dueTodayChores)}
+          </View>
+        )}
+
+        {/* Upcoming */}
+        {upcomingChores.length > 0 && (
+          <View className="mb-4">
+            <Text className="text-base font-semibold text-foreground mb-3">
+              Upcoming ({upcomingChores.length})
+            </Text>
+            {renderChoreList(upcomingChores)}
+          </View>
+        )}
+
+        {/* Completed one-offs */}
+        {completedOneOffs.length > 0 && (
           <View className="mb-4">
             <Text className="text-base font-semibold text-muted-foreground mb-3">
-              Completed ({completedChores.length})
+              Completed ({completedOneOffs.length})
             </Text>
-            {completedChores.map((chore) => {
+            {completedOneOffs.map((chore) => {
               const flatmate = flatmates.find((f) => f.id === chore.assignedTo);
               return (
                 <ChoreCard
                   key={chore.id}
                   chore={chore}
                   flatmate={flatmate}
-                  onUncomplete={() => uncompleteChore(chore.id)}
                   onDelete={() => removeChore(chore.id)}
                 />
               );
