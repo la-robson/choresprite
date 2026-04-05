@@ -25,6 +25,8 @@ export interface Flatmate {
   points: number;
   streak: number;
   color: string; // pastel color for identification
+  /** Hashed password (simple hash for local-only auth) */
+  passwordHash: string;
 }
 
 export interface Chore {
@@ -95,6 +97,17 @@ function getNextAvatar(flatmates: Flatmate[]): string {
 function getNextColor(flatmates: Flatmate[]): string {
   const used = new Set(flatmates.map((f) => f.color));
   return FLATMATE_COLORS.find((c) => !used.has(c)) || FLATMATE_COLORS[0];
+}
+
+/** Simple hash for local-only password storage (not cryptographically secure, but fine for local AsyncStorage) */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  // Add salt-like prefix to make it slightly more opaque
+  return 'ph_' + Math.abs(hash).toString(36);
 }
 
 /** Calculate next due date from a base date + frequency in days */
@@ -181,9 +194,11 @@ interface ChoreStore {
   login: (flatmateId: string) => void;
   logout: () => void;
   getCurrentUser: () => Flatmate | null;
+  /** Verify password for a flatmate. Returns true if correct. */
+  verifyPassword: (flatmateId: string, password: string) => boolean;
 
   // Flatmate actions
-  addFlatmate: (name: string) => string; // returns new flatmate id
+  addFlatmate: (name: string, password: string) => string; // returns new flatmate id
   removeFlatmate: (id: string) => void;
   updateFlatmateName: (id: string, name: string) => void;
   updateFlatmateAvatar: (id: string, avatar: string) => void;
@@ -235,7 +250,13 @@ export const useChoreStore = create<ChoreStore>()(
         return flatmates.find((f) => f.id === currentUserId) ?? null;
       },
 
-      addFlatmate: (name: string) => {
+      verifyPassword: (flatmateId: string, password: string) => {
+        const flatmate = get().flatmates.find((f) => f.id === flatmateId);
+        if (!flatmate) return false;
+        return flatmate.passwordHash === simpleHash(password);
+      },
+
+      addFlatmate: (name: string, password: string) => {
         const { flatmates } = get();
         const id = generateId();
         const newFlatmate: Flatmate = {
@@ -245,6 +266,7 @@ export const useChoreStore = create<ChoreStore>()(
           points: 0,
           streak: 0,
           color: getNextColor(flatmates),
+          passwordHash: simpleHash(password),
         };
         set({ flatmates: [...flatmates, newFlatmate] });
         return id;

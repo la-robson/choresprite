@@ -25,8 +25,13 @@ export default function HomeScreen() {
   const activeChores = getActiveChores();
   const currentUser = getCurrentUser();
 
-  const overdueChores = activeChores.filter((c) => isOverdue(c.nextDueDate));
-  const dueTodayChores = activeChores.filter((c) => isDueToday(c.nextDueDate));
+  // Filter to user's chores (assigned to them or unassigned) for the dashboard
+  const myActiveChores = activeChores.filter(
+    (c) => c.assignedTo === currentUserId || c.assignedTo === null,
+  );
+
+  const overdueChores = myActiveChores.filter((c) => isOverdue(c.nextDueDate));
+  const dueTodayChores = myActiveChores.filter((c) => isDueToday(c.nextDueDate));
   const needsAttention = [...overdueChores, ...dueTodayChores];
 
   const handleComplete = (chore: { id: string }) => {
@@ -70,7 +75,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Progress bar */}
-        {activeChores.length > 0 && (
+        {myActiveChores.length > 0 && (
           <View className="px-5 mb-6">
             <View className="bg-card rounded-2xl border border-border p-4">
               <View className="flex-row items-center justify-between mb-2">
@@ -130,7 +135,7 @@ export default function HomeScreen() {
         )}
 
         {/* Empty state */}
-        {activeChores.length === 0 && (
+        {myActiveChores.length === 0 && (
           <View className="px-5 items-center py-4">
             <View className="bg-card rounded-2xl border border-border p-6 items-center w-full">
               <Text style={{ fontSize: 40 }} className="mb-3">

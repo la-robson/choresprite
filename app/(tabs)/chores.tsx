@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, Sparkles } from 'lucide-react-native';
+import { Plus, Sparkles, Users, User } from 'lucide-react-native';
 import { useChoreStore, isOverdue, isDueToday } from '@/lib/store';
 import type { Chore } from '@/lib/store';
 import { ChoreCard } from '@/components/ChoreCard';
@@ -11,9 +11,19 @@ export default function ChoresScreen() {
   const { flatmates, currentUserId, getActiveChores, getCompletedOneOffs, completeChore, removeChore } =
     useChoreStore();
   const [showAddSheet, setShowAddSheet] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
-  const activeChores = getActiveChores();
-  const completedOneOffs = getCompletedOneOffs();
+  const allActiveChores = getActiveChores();
+  const allCompletedOneOffs = getCompletedOneOffs();
+
+  // Filter chores: "My Chores" = assigned to me OR unassigned
+  const activeChores = showAll
+    ? allActiveChores
+    : allActiveChores.filter((c) => c.assignedTo === currentUserId || c.assignedTo === null);
+
+  const completedOneOffs = showAll
+    ? allCompletedOneOffs
+    : allCompletedOneOffs.filter((c) => c.assignedTo === currentUserId || c.assignedTo === null);
 
   const overdueChores = activeChores.filter((c) => isOverdue(c.nextDueDate));
   const dueTodayChores = activeChores.filter((c) => isDueToday(c.nextDueDate));
@@ -24,7 +34,6 @@ export default function ChoresScreen() {
   const totalActive = activeChores.length;
 
   const handleComplete = (chore: { id: string }) => {
-    // Auto-assign to current logged-in user
     if (currentUserId) {
       completeChore(chore.id, currentUserId);
     }
@@ -70,6 +79,48 @@ export default function ChoresScreen() {
         </Pressable>
       </View>
 
+      {/* Filter toggle */}
+      <View className="px-5 pb-3">
+        <View className="flex-row bg-muted rounded-xl p-1" style={{ gap: 4 }}>
+          <Pressable
+            onPress={() => setShowAll(false)}
+            className={`flex-1 flex-row items-center justify-center rounded-lg py-2.5 ${
+              !showAll ? 'bg-card' : ''
+            }`}
+            style={!showAll ? { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 } : undefined}
+          >
+            <View className="mr-1.5">
+              <User size={15} color={!showAll ? 'hsl(152, 55%, 42%)' : 'hsl(150, 10%, 55%)'} />
+            </View>
+            <Text
+              className={`text-sm font-medium ${
+                !showAll ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              My Chores
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setShowAll(true)}
+            className={`flex-1 flex-row items-center justify-center rounded-lg py-2.5 ${
+              showAll ? 'bg-card' : ''
+            }`}
+            style={showAll ? { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 } : undefined}
+          >
+            <View className="mr-1.5">
+              <Users size={15} color={showAll ? 'hsl(152, 55%, 42%)' : 'hsl(150, 10%, 55%)'} />
+            </View>
+            <Text
+              className={`text-sm font-medium ${
+                showAll ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              All Chores
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
       <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 32 }}>
         {/* Empty state */}
         {totalActive === 0 && completedOneOffs.length === 0 && (
@@ -78,10 +129,13 @@ export default function ChoresScreen() {
               <Text style={{ fontSize: 48 }} className="mb-4">
                 ✨
               </Text>
-              <Text className="text-lg font-semibold text-foreground mb-2">No chores yet</Text>
+              <Text className="text-lg font-semibold text-foreground mb-2">
+                {showAll ? 'No chores yet' : 'No chores assigned to you'}
+              </Text>
               <Text className="text-sm text-muted-foreground text-center mb-5">
-                Add your first chore to start tracking cleaning responsibilities with your
-                flatmates
+                {showAll
+                  ? 'Add your first chore to start tracking cleaning responsibilities with your flatmates'
+                  : 'Switch to "All Chores" to see everything, or add a new chore'}
               </Text>
               <Pressable
                 onPress={() => setShowAddSheet(true)}
@@ -90,7 +144,7 @@ export default function ChoresScreen() {
                 <View className="mr-1.5">
                   <Sparkles size={16} color="white" />
                 </View>
-                <Text className="text-primary-foreground font-semibold">Add First Chore</Text>
+                <Text className="text-primary-foreground font-semibold">Add Chore</Text>
               </Pressable>
             </View>
           </View>
