@@ -201,6 +201,10 @@ interface ChoreStore {
   createFlat: (flatName: string, userName: string) => string;
   /** Join an existing flat by code. Returns flatmate id or null if code is wrong. */
   joinFlat: (code: string, name: string) => string | null;
+  /** Claim an existing flatmate account (multi-device login). Returns flatmate id or null if code/id is wrong. */
+  claimFlatmate: (code: string, flatmateId: string) => string | null;
+  /** Look up flatmates by join code. Returns flatmates array or null if code is wrong. */
+  getFlatmatesByCode: (code: string) => Flatmate[] | null;
   /** Get the flat join code */
   getFlatCode: () => string | null;
 
@@ -298,6 +302,21 @@ export const useChoreStore = create<ChoreStore>()(
           currentUserId: id,
         });
         return id;
+      },
+
+      claimFlatmate: (code: string, flatmateId: string) => {
+        const { flatCode, flatmates } = get();
+        if (!flatCode || code.toUpperCase() !== flatCode.toUpperCase()) return null;
+        const existing = flatmates.find((f) => f.id === flatmateId);
+        if (!existing) return null;
+        set({ currentUserId: flatmateId });
+        return flatmateId;
+      },
+
+      getFlatmatesByCode: (code: string) => {
+        const { flatCode, flatmates } = get();
+        if (!flatCode || code.toUpperCase() !== flatCode.toUpperCase()) return null;
+        return flatmates;
       },
 
       getFlatCode: () => {
