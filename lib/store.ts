@@ -190,12 +190,15 @@ interface ChoreStore {
   /** The flat's join code (null = no flat created yet) */
   flatCode: string | null;
 
+  /** The flat's display name (null = no flat created yet) */
+  flatName: string | null;
+
   // Auth actions
   login: (flatmateId: string) => void;
   logout: () => void;
   getCurrentUser: () => Flatmate | null;
   /** Create a new flat with a join code and first flatmate. Returns the flatmate id. */
-  createFlat: (name: string) => string;
+  createFlat: (flatName: string, userName: string) => string;
   /** Join an existing flat by code. Returns flatmate id or null if code is wrong. */
   joinFlat: (code: string, name: string) => string | null;
   /** Get the flat join code */
@@ -240,6 +243,7 @@ export const useChoreStore = create<ChoreStore>()(
       completions: [],
       currentUserId: null,
       flatCode: null,
+      flatName: null,
 
       login: (flatmateId: string) => {
         set({ currentUserId: flatmateId });
@@ -255,12 +259,12 @@ export const useChoreStore = create<ChoreStore>()(
         return flatmates.find((f) => f.id === currentUserId) ?? null;
       },
 
-      createFlat: (name: string) => {
+      createFlat: (flatName: string, userName: string) => {
         const code = generateFlatCode();
         const id = generateId();
         const newFlatmate: Flatmate = {
           id,
-          name,
+          name: userName,
           avatar: getNextAvatar([]),
           points: 0,
           streak: 0,
@@ -268,6 +272,7 @@ export const useChoreStore = create<ChoreStore>()(
         };
         set({
           flatCode: code,
+          flatName,
           flatmates: [newFlatmate],
           chores: [],
           completions: [],

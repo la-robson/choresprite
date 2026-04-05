@@ -15,6 +15,7 @@ export default function ProfileScreen() {
     logout,
     completions,
     flatCode,
+    flatName,
   } = useChoreStore();
 
   const user = getCurrentUser();
@@ -166,9 +167,14 @@ export default function ProfileScreen() {
         {flatCode && (
           <View className="px-5 mt-5">
             <Text className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Flat Join Code
+              Group Info
             </Text>
             <View className="bg-card border border-border rounded-2xl p-5">
+              {flatName && (
+                <Text className="text-lg font-bold text-foreground text-center mb-3">
+                  {flatName}
+                </Text>
+              )}
               <View className="flex-row items-center justify-center mb-3">
                 <View className="mr-2">
                   <Hash size={20} color="hsl(152, 55%, 42%)" />
@@ -181,7 +187,7 @@ export default function ProfileScreen() {
                 </Text>
               </View>
               <Text className="text-xs text-muted-foreground text-center mb-4">
-                Share this code with new flatmates so they can join your flat
+                Share this code with new flatmates so they can join your group
               </Text>
               <Pressable
                 onPress={handleCopyCode}
@@ -213,9 +219,6 @@ export default function ProfileScreen() {
             </View>
             <Text className="text-base font-semibold text-destructive">Log Out</Text>
           </Pressable>
-          <Text className="text-xs text-muted-foreground text-center mt-2">
-            Switch to a different flatmate
-          </Text>
         </View>
       </ScrollView>
 

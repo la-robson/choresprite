@@ -1,17 +1,25 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, Trash2, Trophy, Flame, Star } from 'lucide-react-native';
+import { Trash2, Trophy, Flame, Star, Hash, Copy, Check } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useChoreStore } from '@/lib/store';
 import { FlatmateAvatar } from '@/components/FlatmateAvatar';
 import { PointsBadge } from '@/components/PointsBadge';
-import { AddFlatmateSheet } from '@/components/AddFlatmateSheet';
 
 export default function FlatmatesScreen() {
-  const { flatmates, getLeaderboard, removeFlatmate } = useChoreStore();
-  const [showAddSheet, setShowAddSheet] = useState(false);
+  const { flatmates, getLeaderboard, removeFlatmate, flatCode } = useChoreStore();
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const leaderboard = getLeaderboard();
+
+  const handleCopyCode = async () => {
+    if (flatCode) {
+      await Clipboard.setStringAsync(flatCode);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -23,18 +31,36 @@ export default function FlatmatesScreen() {
             {flatmates.length} flatmate{flatmates.length !== 1 ? 's' : ''}
           </Text>
         </View>
-        <Pressable
-          onPress={() => setShowAddSheet(true)}
-          className="flex-row items-center bg-primary rounded-xl px-4 py-2.5"
-        >
-          <View className="mr-1.5">
-            <Plus size={18} color="white" />
-          </View>
-          <Text className="text-primary-foreground font-semibold text-sm">Add</Text>
-        </Pressable>
       </View>
 
       <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 32 }}>
+        {/* Invite banner */}
+        {flatCode && (
+          <Pressable
+            onPress={handleCopyCode}
+            className="bg-primary/10 border border-primary/20 rounded-2xl p-4 mb-5 flex-row items-center active:opacity-70"
+          >
+            <View className="mr-3">
+              <Hash size={20} color="hsl(152, 55%, 42%)" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-foreground">
+                Invite flatmates
+              </Text>
+              <Text className="text-xs text-muted-foreground mt-0.5">
+                Share code <Text className="font-bold text-primary" style={{ letterSpacing: 2 }}>{flatCode}</Text> so they can join
+              </Text>
+            </View>
+            <View className="w-9 h-9 rounded-xl bg-primary/15 items-center justify-center">
+              {codeCopied ? (
+                <Check size={16} color="hsl(152, 55%, 42%)" />
+              ) : (
+                <Copy size={16} color="hsl(152, 55%, 42%)" />
+              )}
+            </View>
+          </Pressable>
+        )}
+
         {/* Empty state */}
         {flatmates.length === 0 && (
           <View className="items-center py-12">
@@ -43,18 +69,9 @@ export default function FlatmatesScreen() {
               <Text className="text-lg font-semibold text-foreground mb-2">
                 No flatmates yet
               </Text>
-              <Text className="text-sm text-muted-foreground text-center mb-5">
-                Add your flatmates to start splitting chores and competing for points
+              <Text className="text-sm text-muted-foreground text-center">
+                Share your group code with flatmates so they can join
               </Text>
-              <Pressable
-                onPress={() => setShowAddSheet(true)}
-                className="flex-row items-center bg-primary rounded-xl px-5 py-3"
-              >
-                <View className="mr-1.5">
-                  <Plus size={16} color="white" />
-                </View>
-                <Text className="text-primary-foreground font-semibold">Add First Flatmate</Text>
-              </Pressable>
             </View>
           </View>
         )}
@@ -188,8 +205,6 @@ export default function FlatmatesScreen() {
           </View>
         )}
       </ScrollView>
-
-      <AddFlatmateSheet visible={showAddSheet} onClose={() => setShowAddSheet(false)} />
     </SafeAreaView>
   );
 }
