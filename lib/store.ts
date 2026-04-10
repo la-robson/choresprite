@@ -24,6 +24,8 @@ export interface Flatmate {
   avatar: string; // emoji avatar
   points: number;
   streak: number;
+  /** ISO date string for when the current streak started. null = no active streak (has overdue chores). */
+  streakStartDate: string | null;
   color: string; // pastel color for identification
 }
 
@@ -238,6 +240,15 @@ export function formatDueDate(dateStr: string): string {
   return due.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
+/** Count full days between a start date and today (inclusive of today) */
+function daysSince(dateStr: string): number {
+  const start = new Date(dateStr);
+  start.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+}
+
 /** Sort chores: overdue first (most overdue first), then by nextDueDate ascending. Completed one-offs go last. */
 export function sortChoresByDue(chores: Chore[]): Chore[] {
   return [...chores].sort((a, b) => {
@@ -312,6 +323,9 @@ interface ChoreStore {
   uncompleteChore: (choreId: string) => void;
   reassignChore: (choreId: string, flatmateId: string | null) => void;
 
+  /** Recalculate all flatmate streaks based on overdue chores. Call on app open and after chore changes. */
+  refreshStreaks: () => void;
+
   // Queries
   getSortedChores: () => Chore[];
   getActiveChores: () => Chore[];
@@ -361,6 +375,7 @@ export const useChoreStore = create<ChoreStore>()(
           avatar: getNextAvatar([]),
           points: 0,
           streak: 0,
+          streakStartDate: startOfToday(),
           color: getNextColor([]),
         };
         set({
@@ -384,6 +399,7 @@ export const useChoreStore = create<ChoreStore>()(
           avatar: getNextAvatar(flatmates),
           points: 0,
           streak: 0,
+          streakStartDate: startOfToday(),
           color: getNextColor(flatmates),
         };
         set({
@@ -421,6 +437,7 @@ export const useChoreStore = create<ChoreStore>()(
           avatar: getNextAvatar(flatmates),
           points: 0,
           streak: 0,
+          streakStartDate: startOfToday(),
           color: getNextColor(flatmates),
         };
         set({ flatmates: [...flatmates, newFlatmate] });
@@ -560,11 +577,14 @@ export const useChoreStore = create<ChoreStore>()(
           }),
           flatmates: flatmates.map((f) =>
             f.id === flatmateId
-              ? { ...f, points: f.points + chore.points, streak: f.streak + 1 }
+              ? { ...f, points: f.points + chore.points }
               : f,
           ),
           completions: [...completions, completion],
         });
+
+        // Recalculate streaks after chore state changed
+        get().refreshStreaks();
       },
 
       uncompleteChore: (choreId: string) => {
@@ -583,6 +603,33 @@ export const useChoreStore = create<ChoreStore>()(
             c.id === choreId ? { ...c, assignedTo: flatmateId } : c,
           ),
         });
+      },
+
+      refreshStreaks: () => {
+        const { flatmates, chores } = get();
+        // Active chores = not completed one-offs
+        const activeChores = chores.filter((c) => !(c.choreType === 'oneOff' && c.completed));
+        const today = startOfToday();
+
+        const updated = flatmates.map((f) => {
+          // Chores relevant to this flatmate: assigned to them or unassigned
+          const myChores = activeChores.filter(
+            (c) => c.assignedTo === f.id,
+          );
+          const hasOverdue = myChores.some((c) => isOverdue(c.nextDueDate));
+
+          if (hasOverdue) {
+            // Streak broken - reset
+            return { ...f, streak: 0, streakStartDate: null };
+          }
+
+          // No overdue chores - start or continue streak
+          const streakStart = f.streakStartDate ?? today;
+          const streak = daysSince(streakStart);
+          return { ...f, streak, streakStartDate: streakStart };
+        });
+
+        set({ flatmates: updated });
       },
 
       getSortedChores: () => {

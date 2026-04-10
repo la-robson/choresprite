@@ -18,6 +18,7 @@ import * as DevClient from 'expo-dev-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { DARK_THEME, LIGHT_THEME } from '@/lib/constants';
+import { useChoreStore } from '@/lib/store';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 import {
@@ -62,6 +63,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded || error) {
       SplashScreen.hideAsync();
+      // Recalculate streaks on app open so overdue chores break streaks even if the app wasn't used
+      useChoreStore.getState().refreshStreaks();
     }
   }, [loaded, error]);
 
