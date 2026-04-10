@@ -11,7 +11,13 @@ interface AssignChoreSheetProps {
 }
 
 export function AssignChoreSheet({ visible, chore, onClose }: AssignChoreSheetProps) {
-  const { flatmates, completeChore } = useChoreStore();
+  const { flatmates, completeChore, currentUserId } = useChoreStore();
+  // Sort: current user first, then by points descending
+  const sortedFlatmates = [...flatmates].sort((a, b) => {
+    if (a.id === currentUserId) return -1;
+    if (b.id === currentUserId) return 1;
+    return b.points - a.points;
+  });
 
   const handleSelect = (flatmateId: string) => {
     if (!chore) return;
@@ -52,7 +58,7 @@ export function AssignChoreSheet({ visible, chore, onClose }: AssignChoreSheetPr
             </View>
           ) : (
             <View style={{ gap: 10 }}>
-              {flatmates.map((f) => (
+              {sortedFlatmates.map((f) => (
                 <Pressable
                   key={f.id}
                   onPress={() => handleSelect(f.id)}
@@ -65,7 +71,12 @@ export function AssignChoreSheet({ visible, chore, onClose }: AssignChoreSheetPr
                     <Text style={{ fontSize: 24 }}>{f.avatar}</Text>
                   </View>
                   <View className="flex-1">
-                    <Text className="text-base font-semibold text-foreground">{f.name}</Text>
+                    <View className="flex-row items-center">
+                      <Text className="text-base font-semibold text-foreground">{f.name}</Text>
+                      {f.id === currentUserId && (
+                        <Text className="text-xs text-primary font-medium ml-1.5">(You)</Text>
+                      )}
+                    </View>
                     <Text className="text-xs text-muted-foreground">{f.points} points</Text>
                   </View>
                   <Text className="text-primary font-bold text-sm">+{chore.points}</Text>

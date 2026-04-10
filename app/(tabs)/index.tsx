@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, ScrollView, Pressable, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Sparkles, TrendingUp, AlertTriangle, Home, Settings2 } from 'lucide-react-native';
+import { Sparkles, TrendingUp, AlertTriangle, Home, Settings2, Undo2, Clock } from 'lucide-react-native';
 import { useChoreStore, isOverdue, isDueToday } from '@/lib/store';
+import type { Chore } from '@/lib/store';
 import { Mascot } from '@/components/Mascot';
 import { ChoreCard } from '@/components/ChoreCard';
 import { PointsBadge } from '@/components/PointsBadge';
+import { AssignChoreSheet } from '@/components/AssignChoreSheet';
 import { RoomSetupSheet } from '@/components/RoomSetupSheet';
 
 export default function HomeScreen() {
@@ -18,13 +20,43 @@ export default function HomeScreen() {
     getMascotMood,
     getCompletionRate,
     getLeaderboard,
-    completeChore,
     getCurrentUser,
     getRoomCompletionRate,
     getGeneralCompletionRate,
+    getRecentActivity,
+    undoLastCompletion,
   } = useChoreStore();
 
   const [showRoomSetup, setShowRoomSetup] = useState(false);
+  const [assignChore, setAssignChore] = useState<Chore | null>(null);
+
+  // Undo toast state
+  const [undoMessage, setUndoMessage] = useState<string | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  const showUndoToast = useCallback((choreTitle: string) => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndoMessage(`Completed "${choreTitle}"`);
+    Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    undoTimer.current = setTimeout(() => {
+      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+        setUndoMessage(null);
+      });
+    }, 5000);
+  }, [toastOpacity]);
+
+  const handleUndo = useCallback(() => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoLastCompletion();
+    Animated.timing(toastOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+      setUndoMessage(null);
+    });
+  }, [undoLastCompletion, toastOpacity]);
+
+  useEffect(() => {
+    return () => { if (undoTimer.current) clearTimeout(undoTimer.current); };
+  }, []);
 
   const mood = getMascotMood();
   const completionRate = getCompletionRate();
@@ -55,11 +87,16 @@ export default function HomeScreen() {
     return { room, rate, choreCount: roomChoreCount };
   });
 
-  const handleComplete = (chore: { id: string }) => {
-    if (currentUserId) {
-      completeChore(chore.id, currentUserId);
+  const handleComplete = (chore: Chore) => {
+    if (flatmates.length > 1) {
+      setAssignChore(chore);
+    } else if (currentUserId) {
+      useChoreStore.getState().completeChore(chore.id, currentUserId);
+      showUndoToast(chore.title);
     }
   };
+
+  const recentActivity = getRecentActivity(10);
 
   const getProgressColor = (rate: number) => {
     if (rate >= 80) return 'bg-primary';
@@ -317,8 +354,89 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
+
+        {/* Recent Activity Feed */}
+        {recentActivity.length > 0 && (
+          <View className="px-5 mb-4">
+            <Text className="text-base font-semibold text-foreground mb-3">
+              Recent Activity
+            </Text>
+            {recentActivity.map(({ completion, flatmate, choreTitle, choreIcon }) => {
+              const completedDate = new Date(completion.completedAt);
+              const now = new Date();
+              const diffMs = now.getTime() - completedDate.getTime();
+              const diffMins = Math.floor(diffMs / 60000);
+              const diffHours = Math.floor(diffMs / 3600000);
+              const timeAgo =
+                diffMins < 1
+                  ? 'just now'
+                  : diffMins < 60
+                    ? `${diffMins}m ago`
+                    : diffHours < 24
+                      ? `${diffHours}h ago`
+                      : completedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+              return (
+                <View
+                  key={completion.id}
+                  className="flex-row items-center bg-card border border-border rounded-xl p-3 mb-2"
+                >
+                  {flatmate && (
+                    <View
+                      className="w-8 h-8 rounded-full items-center justify-center mr-2.5"
+                      style={{ backgroundColor: flatmate.color }}
+                    >
+                      <Text style={{ fontSize: 14 }}>{flatmate.avatar}</Text>
+                    </View>
+                  )}
+                  <View className="flex-1 mr-2">
+                    <Text className="text-sm text-foreground" numberOfLines={1}>
+                      <Text className="font-semibold">{flatmate?.name ?? 'Someone'}</Text>
+                      {' completed '}
+                      <Text className="font-semibold">{choreIcon} {choreTitle}</Text>
+                    </Text>
+                    <View className="flex-row items-center mt-0.5">
+                      <View className="mr-1">
+                        <Clock size={10} color="hsl(150, 10%, 55%)" />
+                      </View>
+                      <Text className="text-xs text-muted-foreground">{timeAgo}</Text>
+                      <Text className="text-xs text-accent-foreground font-medium ml-2">+{completion.points} pts</Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
+      {/* Undo toast */}
+      {undoMessage && (
+        <Animated.View
+          style={{ opacity: toastOpacity, position: 'absolute', bottom: 100, left: 20, right: 20 }}
+        >
+          <View className="bg-foreground rounded-2xl px-4 py-3 flex-row items-center justify-between">
+            <Text className="text-background text-sm font-medium flex-1 mr-3" numberOfLines={1}>
+              {undoMessage}
+            </Text>
+            <Pressable onPress={handleUndo} className="flex-row items-center bg-background/20 rounded-xl px-3 py-1.5">
+              <View className="mr-1">
+                <Undo2 size={14} color="hsl(120, 20%, 97%)" />
+              </View>
+              <Text className="text-background text-sm font-semibold">Undo</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+      )}
+
+      <AssignChoreSheet
+        visible={!!assignChore}
+        chore={assignChore}
+        onClose={() => {
+          if (assignChore) showUndoToast(assignChore.title);
+          setAssignChore(null);
+        }}
+      />
       <RoomSetupSheet visible={showRoomSetup} onClose={() => setShowRoomSetup(false)} />
     </SafeAreaView>
   );

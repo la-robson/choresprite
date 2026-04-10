@@ -320,6 +320,8 @@ interface ChoreStore {
   ) => void;
   removeChore: (id: string) => void;
   completeChore: (choreId: string, flatmateId: string) => void;
+  /** Undo the most recent completion. Returns the undone completion or null if nothing to undo. */
+  undoLastCompletion: () => ChoreCompletion | null;
   uncompleteChore: (choreId: string) => void;
   reassignChore: (choreId: string, flatmateId: string | null) => void;
 
@@ -339,6 +341,13 @@ interface ChoreStore {
   getRoomCompletionRate: (roomId: string) => number;
   /** Get completion rate for chores with no room (general/apartment) */
   getGeneralCompletionRate: () => number;
+  /** Get recent activity (completions with flatmate/chore info), newest first */
+  getRecentActivity: (limit?: number) => {
+    completion: ChoreCompletion;
+    flatmate: Flatmate | undefined;
+    choreTitle: string;
+    choreIcon: string;
+  }[];
 }
 
 export const useChoreStore = create<ChoreStore>()(
@@ -587,6 +596,36 @@ export const useChoreStore = create<ChoreStore>()(
         get().refreshStreaks();
       },
 
+      undoLastCompletion: () => {
+        const { completions, chores, flatmates } = get();
+        if (completions.length === 0) return null;
+
+        const last = completions[completions.length - 1];
+
+        set({
+          completions: completions.slice(0, -1),
+          chores: chores.map((c) => {
+            if (c.id !== last.choreId) return c;
+            if (c.choreType === 'oneOff') {
+              return { ...c, completed: false, lastCompletedAt: null };
+            }
+            // Recurring: revert nextDueDate by subtracting frequencyDays
+            const prevDue = c.frequencyDays
+              ? calculateNextDueDate(c.nextDueDate, -c.frequencyDays)
+              : c.nextDueDate;
+            return { ...c, lastCompletedAt: null, nextDueDate: prevDue };
+          }),
+          flatmates: flatmates.map((f) =>
+            f.id === last.flatmateId
+              ? { ...f, points: Math.max(0, f.points - last.points) }
+              : f,
+          ),
+        });
+
+        get().refreshStreaks();
+        return last;
+      },
+
       uncompleteChore: (choreId: string) => {
         const { chores } = get();
         set({
@@ -704,6 +743,23 @@ export const useChoreStore = create<ChoreStore>()(
         if (chores.length === 0) return 100;
         const notOverdue = chores.filter((c) => !isOverdue(c.nextDueDate)).length;
         return Math.round((notOverdue / chores.length) * 100);
+      },
+
+      getRecentActivity: (limit = 20) => {
+        const { completions, flatmates, chores } = get();
+        return [...completions]
+          .reverse()
+          .slice(0, limit)
+          .map((completion) => {
+            const flatmate = flatmates.find((f) => f.id === completion.flatmateId);
+            const chore = chores.find((c) => c.id === completion.choreId);
+            return {
+              completion,
+              flatmate,
+              choreTitle: chore?.title ?? 'Deleted chore',
+              choreIcon: chore?.icon ?? '✅',
+            };
+          });
       },
     }),
     {

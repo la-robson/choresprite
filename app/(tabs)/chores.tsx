@@ -1,19 +1,49 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, ScrollView, Pressable, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, Sparkles, Users, User, Home } from 'lucide-react-native';
+import { Plus, Sparkles, Users, User, Home, Undo2 } from 'lucide-react-native';
 import { useChoreStore, isOverdue, isDueToday } from '@/lib/store';
 import type { Chore } from '@/lib/store';
 import { ChoreCard } from '@/components/ChoreCard';
 import { AddChoreSheet } from '@/components/AddChoreSheet';
+import { AssignChoreSheet } from '@/components/AssignChoreSheet';
 import { RoomSetupSheet } from '@/components/RoomSetupSheet';
 
 export default function ChoresScreen() {
-  const { flatmates, rooms, currentUserId, getActiveChores, getCompletedOneOffs, completeChore, removeChore } =
+  const { flatmates, rooms, currentUserId, getActiveChores, getCompletedOneOffs, removeChore, undoLastCompletion } =
     useChoreStore();
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [showRoomSetup, setShowRoomSetup] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [assignChore, setAssignChore] = useState<Chore | null>(null);
+
+  // Undo toast state
+  const [undoMessage, setUndoMessage] = useState<string | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  const showUndoToast = useCallback((choreTitle: string) => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndoMessage(`Completed "${choreTitle}"`);
+    Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    undoTimer.current = setTimeout(() => {
+      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+        setUndoMessage(null);
+      });
+    }, 5000);
+  }, [toastOpacity]);
+
+  const handleUndo = useCallback(() => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoLastCompletion();
+    Animated.timing(toastOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+      setUndoMessage(null);
+    });
+  }, [undoLastCompletion, toastOpacity]);
+
+  useEffect(() => {
+    return () => { if (undoTimer.current) clearTimeout(undoTimer.current); };
+  }, []);
 
   const allActiveChores = getActiveChores();
   const allCompletedOneOffs = getCompletedOneOffs();
@@ -35,9 +65,14 @@ export default function ChoresScreen() {
 
   const totalActive = activeChores.length;
 
-  const handleComplete = (chore: { id: string }) => {
-    if (currentUserId) {
-      completeChore(chore.id, currentUserId);
+  const handleComplete = (chore: Chore) => {
+    if (flatmates.length > 1) {
+      // Multiple flatmates: ask who did it
+      setAssignChore(chore);
+    } else if (currentUserId) {
+      // Solo user: complete directly
+      useChoreStore.getState().completeChore(chore.id, currentUserId);
+      showUndoToast(chore.title);
     }
   };
 
@@ -238,7 +273,34 @@ export default function ChoresScreen() {
         )}
       </ScrollView>
 
+      {/* Undo toast */}
+      {undoMessage && (
+        <Animated.View
+          style={{ opacity: toastOpacity, position: 'absolute', bottom: 100, left: 20, right: 20 }}
+        >
+          <View className="bg-foreground rounded-2xl px-4 py-3 flex-row items-center justify-between">
+            <Text className="text-background text-sm font-medium flex-1 mr-3" numberOfLines={1}>
+              {undoMessage}
+            </Text>
+            <Pressable onPress={handleUndo} className="flex-row items-center bg-background/20 rounded-xl px-3 py-1.5">
+              <View className="mr-1">
+                <Undo2 size={14} color="hsl(120, 20%, 97%)" />
+              </View>
+              <Text className="text-background text-sm font-semibold">Undo</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+      )}
+
       <AddChoreSheet visible={showAddSheet} onClose={() => setShowAddSheet(false)} />
+      <AssignChoreSheet
+        visible={!!assignChore}
+        chore={assignChore}
+        onClose={() => {
+          if (assignChore) showUndoToast(assignChore.title);
+          setAssignChore(null);
+        }}
+      />
       <RoomSetupSheet visible={showRoomSetup} onClose={() => setShowRoomSetup(false)} />
     </SafeAreaView>
   );
